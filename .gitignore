@@ -1,0 +1,28 @@
+# Local credentials and environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*
+auth.json
+auth.ini
+# Usage records, sessions and local state
+*.jsonl
+*.log
+.cache/
+.local/
+.codex/
+.claude/
+usage/
+sessions/
+state/
+snapshots/
+# Editors and temporary files
+*~
+*.bak
+*.swp
+.DS_Store
+.idea/
+.vscode/
+__pycache__/

@@ -6,6 +6,10 @@ An AI usage widget made for Omarchy. Keep an eye on subscription limits, reset t
 
 Derived from Omarchy's `omarchy.agents` widget, with a compact bar label showing the most recently recorded Codex model and remaining allowance. The popup supports Claude, Codex and Fireworks records supplied by Omarchy.
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="OmaGoblin panel showing Codex weekly quota, daily token usage and usage by model" width="493">
+</p>
+
 ## Features
 
 - Subscription usage meters and time until quota resets.

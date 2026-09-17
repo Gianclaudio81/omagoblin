@@ -7,7 +7,7 @@ An AI usage widget made for Omarchy. Keep an eye on subscription limits, reset t
 Derived from Omarchy's `omarchy.agents` widget, with a compact bar label showing the most recently recorded Codex model and remaining allowance. The popup supports Claude, Codex and Fireworks records supplied by Omarchy.
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="OmaGoblin panel showing Codex weekly quota, daily token usage and usage by model" width="493">
+  <img src="preview.png" alt="OmaGoblin panel showing Codex weekly quota, daily token usage and usage by model" width="493">
 </p>
 
 ## Features
@@ -54,6 +54,14 @@ Update or disable:
 omarchy plugin update tod.omagoblin
 omarchy plugin disable tod.omagoblin
 ```
+
+## Remove
+
+```bash
+omarchy plugin remove tod.omagoblin
+```
+
+Omarchy asks for confirmation before removing the installed plugin. Shared agent usage records and any external sync snapshots are not deleted by this plugin.
 
 ## Settings
 

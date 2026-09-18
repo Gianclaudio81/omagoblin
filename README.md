@@ -24,7 +24,7 @@ The bar label is Codex-focused. The displayed model comes from the latest modifi
 
 - Omarchy with the Quickshell plugin system and `omarchy-agent-usage-update` (packaging validated against Omarchy 4.0.4-1).
 - Omarchy's `qs.Commons` and `qs.Ui` components and agent collectors.
-- Bash, jq and GNU findutils/coreutils.
+- Bash, Python 3, jq and GNU findutils/coreutils.
 - A supported agent installed and authenticated separately to retrieve its account limits.
 
 This is an Omarchy plugin, not a standalone Quickshell configuration. Collectors and authentication tools are not bundled. Older Omarchy versions without these APIs are not supported.
@@ -81,6 +81,16 @@ omarchy bar set tod.omagoblin syncMode On
 
 You provide the synchronization service. Snapshots contain usage statistics and device identifiers: keep that folder private and outside this repository. Rate limits remain per-account and are not added across devices. Disable aggregation with `syncMode Off`.
 
+The sync reader treats snapshots as untrusted. Each scan examines at most 1,024
+entries and 64 JSON candidates, reads at most 256 KiB per file and 2 MiB total,
+and emits at most 2 MiB to the shell. Symlinks and non-regular files are rejected,
+including replacements between inspection and opening. JSON is limited to 12
+levels, 4,096 items per container, 32 providers per snapshot, 8,192 values per
+snapshot and 32,768 values per scan; strings and keys are also bounded. Invalid
+or excess snapshots are skipped and the panel shows a warning. Use a dedicated
+sync folder: excess files can make the aggregate incomplete. The helper has a
+five-second timeout; failed scans retain the last successful aggregate.
+
 ## Controls
 
 Inside the panel: `h` / `l` switch subscription, `j` / `k` scroll, `r` or Enter refresh, Esc closes.
@@ -105,6 +115,8 @@ OmaGoblin has no telemetry endpoint. Optional synchronization writes usage snaps
 ```bash
 omarchy plugin validate .
 bash -n active-model.sh
+python3 -m unittest discover -s tests -v
+node --test tests/sync-qml.test.cjs
 ```
 
 The plugin relies on the host Omarchy shell for QML imports. A generic QML linter without those modules cannot validate the full runtime.

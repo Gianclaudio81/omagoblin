@@ -419,8 +419,7 @@ Item {
       finishSyncRun()
       return
     }
-    var script = "dir=$0; [[ -d \"$dir\" ]] || exit 0; shopt -s nullglob; for f in \"$dir\"/*.json; do [[ -f \"$f\" ]] || continue; printf '===%s===\\n' \"$f\"; cat \"$f\"; printf '\\n=== EOM ===\\n'; done"
-    syncScanProcess.command = ["bash", "-c", script, root.syncEffectiveDir]
+    syncScanProcess.command = ["python3", decodeURIComponent(Qt.resolvedUrl("sync-snapshots.py").toString().replace("file://", "")), root.syncEffectiveDir]
     syncScanProcess.running = true
   }
 
@@ -459,44 +458,20 @@ Item {
   }
 
   function parseSyncScanOutput(output) {
-    var lines = String(output || "").split("\n")
-    var snapshots = []
-    var currentPath = ""
-    var currentJson = []
-
-    function flush() {
-      if (currentPath === "") return
-      var raw = currentJson.join("\n").trim()
-      try {
-        var parsed = JSON.parse(raw)
-        if (parsed && parsed.providers) snapshots.push(parsed)
-      } catch (e) {
-        console.warn("agents/sync", "Ignoring bad snapshot", currentPath, e)
-      }
-      currentPath = ""
-      currentJson = []
+    if (!syncConfigured()) return
+    // The helper bounds stdout before StdioCollector sees it. Keep a second
+    // guard here before parsing, including a cap on snapshot cardinality.
+    try {
+      if (output.length > 2 * 1024 * 1024) throw new Error("size")
+      var result = JSON.parse(output)
+      if (!result || !Array.isArray(result.snapshots) || result.snapshots.length > 64)
+        throw new Error("snapshot count")
+      aggregateData = aggregateSnapshots(result.snapshots)
+      syncStatusText = result.limited || result.rejected > 0 ? "Some synced snapshots were skipped (invalid data or safety limits)" : ""
+      syncRevision++
+    } catch (e) {
+      syncStatusText = "Usage sync scan failed"
     }
-
-    for (var i = 0; i < lines.length; i++) {
-      var line = lines[i]
-      var start = line.match(/^===(.+)===$/)
-      if (start && line !== "=== EOM ===") {
-        flush()
-        currentPath = start[1]
-        currentJson = []
-        continue
-      }
-      if (line === "=== EOM ===") {
-        flush()
-        continue
-      }
-      if (currentPath !== "") currentJson.push(line)
-    }
-    flush()
-
-    aggregateData = aggregateSnapshots(snapshots)
-    syncStatusText = ""
-    syncRevision++
   }
 
   function cloneValue(value, fallback) {

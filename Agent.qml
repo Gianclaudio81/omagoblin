@@ -14,6 +14,7 @@ Item {
   property var record: null
 
   FileView {
+    id: recordFile
     path: root.path
     watchChanges: true
     printErrors: false
@@ -21,6 +22,8 @@ Item {
     onLoaded: root.parse(text())
     onLoadFailed: root.record = null
   }
+
+  function reload() { recordFile.reload() }
 
   function parse(content) {
     try {

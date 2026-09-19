@@ -66,11 +66,11 @@ Omarchy asks for confirmation before removing the installed plugin. Shared agent
 ## Settings
 
 ```bash
-omarchy bar set tod.omagoblin refreshIntervalSec 300 --json
+omarchy bar set tod.omagoblin refreshIntervalSec 120 --json
 omarchy bar set tod.omagoblin providers '{"claude":{"enabled":true},"codex":{"enabled":true},"fireworks":{"enabled":false}}' --json
 ```
 
-Refresh defaults to 900 seconds. Provider settings belong to the widget entry in Omarchy's `shell.json`; providers default to enabled. No personal settings file is distributed.
+Refresh defaults to 120 seconds. Missing subscription limits are retried automatically after 30 seconds, with backoff up to two minutes. Local records are re-read every 30 seconds to recover missed file-change notifications. Provider settings belong to the widget entry in Omarchy's `shell.json`; providers default to enabled. No personal settings file is distributed.
 
 Optional cross-device aggregation:
 
@@ -116,7 +116,7 @@ OmaGoblin has no telemetry endpoint. Optional synchronization writes usage snaps
 omarchy plugin validate .
 bash -n active-model.sh
 python3 -m unittest discover -s tests -v
-node --test tests/sync-qml.test.cjs
+node --test tests/*.test.cjs
 ```
 
 The plugin relies on the host Omarchy shell for QML imports. A generic QML linter without those modules cannot validate the full runtime.

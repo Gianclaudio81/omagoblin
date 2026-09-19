@@ -80,31 +80,70 @@ Item {
     scheduleSync()
   }
 
-  // A collector that could not reach its limits endpoint at all — typically
-  // the seconds after login before the network is up — writes retryAdvised
-  // into its record. Honor it with one sooner try instead of waiting out the
-  // full refresh interval; a run that reaches the endpoint clears the flag.
-  // Only the advising agents rerun, so an outage at one provider does not
-  // put every other collector on a 30-second treadmill.
+  // Some collectors return empty limits without retryAdvised. Recover those
+  // records too, with bounded backoff rather than waiting for a panel click.
   property var retryAgentIds: []
+  property int limitsRetryDelayMs: 30000
 
   Timer {
     id: limitsRetry
-    interval: 30000
+    interval: root.limitsRetryDelayMs
     repeat: false
-    onTriggered: root.runUpdate("limits", root.retryAgentIds)
+    onTriggered: {
+      root.limitsRetryDelayMs = Math.min(120000, root.limitsRetryDelayMs * 2)
+      root.runUpdate("limits", root.retryAgentIds)
+    }
+  }
+
+  // File watchers can miss replacements. Re-read locally even when no
+  // collector writes a new file; this does not make a network request.
+  Timer {
+    interval: 30000
+    running: true
+    repeat: true
+    onTriggered: {
+      root.rescanAgents()
+      root.reloadAgents()
+      root.scheduleLimitsRetry()
+    }
+  }
+
+  function reloadAgents() {
+    for (var i = 0; i < agents.length; i++) {
+      if (agents[i]) agents[i].reload()
+    }
+  }
+
+  function needsLimitsRetry(agent) {
+    if (!agent || !providerEnabled(agent.agentId)) return false
+    var record = agent.record
+    if (record && record.retryAdvised === true) return true
+    // Prepaid and unknown providers need not have subscription limits.
+    if (agent.agentId !== "codex" && agent.agentId !== "claude") return false
+    if (!record) return true
+    if (record.ready !== true || record.balance) return false
+    var limits = Array.isArray(record.limits) ? record.limits : []
+    for (var i = 0; i < limits.length; i++) {
+      var value = limits[i] ? limits[i].percent : null
+      if (value !== null && value !== undefined && value !== ""
+          && isFinite(Number(value)) && Number(value) >= 0) return false
+    }
+    return true
   }
 
   function scheduleLimitsRetry() {
     var advising = []
     for (var i = 0; i < agents.length; i++) {
-      var record = agents[i] ? agents[i].record : null
-      if (record && record.retryAdvised === true && providerEnabled(String(record.id || "")))
-        advising.push(String(record.id))
+      if (needsLimitsRetry(agents[i])) advising.push(agents[i].agentId)
     }
     retryAgentIds = advising
-    if (advising.length > 0) limitsRetry.restart()
-    else limitsRetry.stop()
+    if (advising.length > 0) {
+      // Repeated reads or changes at another provider must not postpone it.
+      if (!limitsRetry.running) limitsRetry.start()
+    } else {
+      limitsRetry.stop()
+      limitsRetryDelayMs = 30000
+    }
   }
 
   Component.onCompleted: {
@@ -114,7 +153,7 @@ Item {
 
   // -------------------------------------------------------------- refresh
 
-  property int refreshIntervalSec: Math.max(30, Number(setting("refreshIntervalSec", 900)))
+  property int refreshIntervalSec: Math.max(30, Number(setting("refreshIntervalSec", 120)))
   property string pendingUpdateKind: ""
 
   Timer {
@@ -130,6 +169,7 @@ Item {
     running: false
     onExited: {
       root.rescanAgents()
+      root.reloadAgents()
       if (root.pendingUpdateKind !== "") {
         var kind = root.pendingUpdateKind
         root.pendingUpdateKind = ""

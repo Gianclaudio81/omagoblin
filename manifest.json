@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "tod.omagoblin",
   "name": "OmaGoblin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Gianclaudio81 and Omarchy contributors",
   "license": "MIT",
   "description": "Your tokens. My precious. AI subscription usage and remaining quotas for Omarchy.",
@@ -34,7 +34,7 @@
           "enabled": true
         }
       },
-      "refreshIntervalSec": 900,
+      "refreshIntervalSec": 120,
       "syncMode": "Off",
       "syncDir": "",
       "syncFileName": "",
@@ -48,7 +48,7 @@
         "min": 30,
         "max": 3600,
         "step": 30,
-        "defaultValue": 900
+        "defaultValue": 120
       },
       {
         "key": "syncMode",

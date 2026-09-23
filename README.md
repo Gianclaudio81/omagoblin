@@ -4,7 +4,7 @@
 
 An AI usage widget made for Omarchy. Keep an eye on subscription limits, reset times and token consumption from the desktop bar.
 
-Derived from Omarchy's `omarchy.agents` widget, with a compact bar label showing the most recently recorded Codex model and remaining allowance. The popup supports Claude, Codex and Fireworks records supplied by Omarchy.
+Derived from Omarchy's `omarchy.agents` widget. The bar can show one or several provider summaries, while the popup shows any provider record supplied by Omarchy.
 
 <p align="center">
   <img src="preview.png" alt="OmaGoblin panel showing Codex weekly quota, daily token usage and usage by model" width="493">
@@ -16,9 +16,10 @@ Derived from Omarchy's `omarchy.agents` widget, with a compact bar label showing
 - Daily and per-model token statistics.
 - Prepaid balance when the collector supplies one; estimated balances remain labeled as estimates.
 - Optional usage aggregation through a folder you sync between devices.
+- Pin one or several detected providers to the bar from the popup.
 - Left-click opens the panel, middle-click switches subscriptions, right-click launches Omarchy's agent picker.
 
-The bar label is Codex-focused. The displayed model comes from the latest modified local Codex session and can be stale after switching tools. Remaining quota is based on the limit window selected by the widget, not a monetary balance. With no recorded usage, the widget hides itself.
+The bar defaults to Codex when its data is available. For Codex, the displayed model comes from the latest modified local session and can be stale after switching tools. Each provider summary shows remaining quota, prepaid balance, or today's tokens when available. If a pinned provider has no data, the bar shows the other pinned providers; if none has data, it shows the first available provider. With no recorded usage, the widget hides itself.
 
 ## Requirements
 
@@ -67,10 +68,11 @@ Omarchy asks for confirmation before removing the installed plugin. Shared agent
 
 ```bash
 omarchy bar set tod.omagoblin refreshIntervalSec 120 --json
+omarchy bar set tod.omagoblin barProviders 'codex,claude'
 omarchy bar set tod.omagoblin providers '{"claude":{"enabled":true},"codex":{"enabled":true},"fireworks":{"enabled":false}}' --json
 ```
 
-Refresh defaults to 120 seconds. Missing subscription limits are retried automatically after 30 seconds, with backoff up to two minutes. Local records are re-read every 30 seconds to recover missed file-change notifications. Provider settings belong to the widget entry in Omarchy's `shell.json`; providers default to enabled. No personal settings file is distributed.
+`barProviders` takes comma-separated provider IDs in display order. The popup's **Pin to bar** button saves the same setting, so you can select Codex, Claude, both, or any other provider that Omarchy discovers (such as Grok or Gemini). At least one provider stays pinned. Refresh defaults to 120 seconds. Missing subscription limits are retried automatically after 30 seconds, with backoff up to two minutes. Local records are re-read every 30 seconds to recover missed file-change notifications. Provider settings belong to the widget entry in Omarchy's `shell.json`; providers default to enabled. No personal settings file is distributed.
 
 Optional cross-device aggregation:
 

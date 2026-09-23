@@ -19,6 +19,22 @@ Panel {
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
   readonly property var providers: usage.enabledProviders
+  readonly property var pinnedProviderIds: parsePinnedProviders(settings ? settings.barProviders : undefined)
+  readonly property var barProviders: availableBarProviders(providers, pinnedProviderIds)
+  function availableBarProviders(available, pinned) {
+    var selected = []
+    for (var i = 0; i < pinned.length; i++) {
+      for (var j = 0; j < available.length; j++) {
+        if (available[j].providerId === pinned[i]) {
+          selected.push(available[j])
+          break
+        }
+      }
+    }
+    // Keep a useful label when the saved provider has no data on this machine.
+    if (selected.length === 0 && available.length > 0) selected.push(available[0])
+    return selected
+  }
   // The selection follows the provider, not the slot it happens to sit in: a
   // provider whose first scan lands while the panel is open would otherwise
   // shift the list underneath you and swap out what you were reading.
@@ -26,6 +42,8 @@ Panel {
   readonly property int providerIndex: {
     for (var i = 0; i < providers.length; i++)
       if (providers[i].providerId === selectedProviderId) return i
+    for (var j = 0; j < providers.length; j++)
+      if (barProviders.length > 0 && providers[j].providerId === barProviders[0].providerId) return j
     return 0
   }
   readonly property var provider: providers.length > 0 ? providers[providerIndex] : null
@@ -41,20 +59,30 @@ Panel {
   readonly property var headline: bindingWindow(provider)
   readonly property var balance: provider ? (provider.balance || null) : null
   readonly property var codexProvider: providerById("codex")
-  readonly property var codexLimit: bindingWindow(codexProvider)
+  readonly property var codexModels: modelRows(codexProvider)
   property string activeModelId: ""
   readonly property string activeModelText: activeModelId !== ""
     ? usage.friendlyModelName(activeModelId)
-    : (models.length > 0 ? models[0].name : "Codex")
-  readonly property string availableText: codexLimit && codexLimit.percent >= 0
-    ? Math.round((1 - clamp(codexLimit.percent, 0, 1)) * 100) + "%"
-    : "—"
-  readonly property string barText: activeModelText + " · " + availableText
+    : (codexModels.length > 0 ? codexModels[0].name : "Codex")
+  readonly property string barText: {
+    var labels = []
+    for (var i = 0; i < barProviders.length; i++) labels.push(providerBarText(barProviders[i]))
+    return labels.join("  |  ")
+  }
   // A prepaid account runs low the way a subscription window fills up: the
   // last 10% of the funded credits lights the same alarm.
   readonly property bool balanceAlarming: !!balance && balance.funded > 0
     && balance.remaining / balance.funded <= 0.1
-  readonly property bool alarming: (!!headline && headline.percent >= 0.9) || balanceAlarming
+  readonly property bool alarming: {
+    for (var i = 0; i < barProviders.length; i++) {
+      var p = barProviders[i]
+      var limit = bindingWindow(p)
+      if (limit && limit.percent >= 0.9) return true
+      var credit = p.balance
+      if (credit && credit.funded > 0 && credit.remaining / credit.funded <= 0.1) return true
+    }
+    return false
+  }
 
   function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
   function alpha(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
@@ -63,6 +91,44 @@ Panel {
     for (var i = 0; i < providers.length; i++)
       if (providers[i].providerId === id) return providers[i]
     return null
+  }
+
+  function parsePinnedProviders(value) {
+    var raw = value === undefined || value === null ? "codex" : String(value)
+    var ids = raw.split(",")
+    var result = []
+    for (var i = 0; i < ids.length; i++) {
+      var id = ids[i].trim()
+      if (id !== "" && result.indexOf(id) < 0) result.push(id)
+    }
+    return result
+  }
+
+  function providerBarText(p) {
+    var name = p.providerId === "codex" ? activeModelText : p.providerName
+    var limit = bindingWindow(p)
+    if (limit && limit.percent >= 0)
+      return name + " · " + Math.round((1 - clamp(limit.percent, 0, 1)) * 100) + "%"
+    if (p.balance) return name + " · " + formatMoney(p.balance.remaining, p.balance.currency)
+    if (p.todayTotalTokens > 0) return name + " · " + usage.formatTokenCount(p.todayTotalTokens) + " today"
+    return name
+  }
+
+  function pinProvider(id) {
+    var ids = pinnedProviderIds.slice()
+    var index = ids.indexOf(id)
+    if (index >= 0) {
+      if (ids.length <= 1) return
+      ids.splice(index, 1)
+    } else {
+      ids.push(id)
+    }
+    var entry = { id: root.moduleName }
+    for (var key in root.settings) if (key !== "id") entry[key] = root.settings[key]
+    entry.barProviders = ids.join(",")
+    root.settings = entry
+    if (root.bar && root.bar.shell && typeof root.bar.shell.updateEntryInline === "function")
+      root.bar.shell.updateEntryInline(root.moduleName, entry)
   }
 
   function refreshActiveModel() {
@@ -382,8 +448,7 @@ Panel {
     anchors.fill: parent
     bar: root.bar
     text: root.barText
-    tooltipText: "Codex " + root.activeModelText + " · " + root.availableText
-      + " remaining" + (root.codexLimit ? " · " + root.codexLimit.title : "")
+    tooltipText: root.barText
     horizontalMargin: 8.5
     fontSize: Style.font.caption
     active: root.alarming
@@ -538,6 +603,19 @@ Panel {
                 onHovered: function(isHovered) { if (isHovered) root.cursorActive = true }
               }
             }
+          }
+
+          Button {
+            visible: !!root.provider
+            text: root.provider && root.pinnedProviderIds.indexOf(root.provider.providerId) >= 0
+              ? "Pinned to bar" : "Pin to bar"
+            selected: !!root.provider && root.pinnedProviderIds.indexOf(root.provider.providerId) >= 0
+            bordered: true
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+            fontSize: Style.font.bodySmall
+            verticalPadding: Style.spacing.controlPaddingY
+            onClicked: if (root.provider) root.pinProvider(root.provider.providerId)
           }
 
           // ---------- Status ----------

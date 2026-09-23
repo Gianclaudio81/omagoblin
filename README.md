@@ -7,7 +7,12 @@ An AI usage widget made for Omarchy. Keep an eye on subscription limits, reset t
 Derived from Omarchy's `omarchy.agents` widget. The bar can show one or several provider summaries, while the popup shows any provider record supplied by Omarchy.
 
 <p align="center">
-  <img src="preview.png" alt="OmaGoblin panel showing Codex weekly quota, daily token usage and usage by model" width="493">
+  <img src="preview.png" alt="OmaGoblin Codex panel with provider tabs, quota, daily tokens and model usage" width="493">
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/claude-code-pinned.png" alt="Claude Code panel pinned to the bar" width="300">
+  <img src="assets/screenshots/claude-code-unpinned.png" alt="Claude Code panel with the pin-to-bar option" width="300">
 </p>
 
 ## Features

@@ -24,7 +24,7 @@ Derived from Omarchy's `omarchy.agents` widget. The bar can show one or several 
 - Pin one or several detected providers to the bar from the popup.
 - Left-click opens the panel, middle-click switches subscriptions, right-click launches Omarchy's agent picker.
 
-The bar defaults to Codex when its data is available. For Codex, the displayed model comes from the latest modified local session and can be stale after switching tools. Each provider summary shows remaining quota, prepaid balance, or today's tokens when available. If a pinned provider has no data, the bar shows the other pinned providers; if none has data, it shows the first available provider. With no recorded usage, the widget hides itself.
+The bar defaults to Codex when its data is available. The bar shows only the remaining percentage of the current session for each pinned provider; a missing session quota appears as an em dash. Weekly limits, names, balances and token totals remain in the popup. If a pinned provider has no data, the bar shows the other pinned providers; if none has data, it shows the first available provider. With no recorded usage, the widget hides itself.
 
 ## Requirements
 
@@ -33,7 +33,7 @@ The bar defaults to Codex when its data is available. For Codex, the displayed m
 - Bash, Python 3, jq and GNU findutils/coreutils.
 - A supported agent installed and authenticated separately to retrieve its account limits.
 
-This is an Omarchy plugin, not a standalone Quickshell configuration. Collectors and authentication tools are not bundled. Older Omarchy versions without these APIs are not supported.
+This is an Omarchy plugin, not a standalone Quickshell configuration. The Claude adapter reuses the installed Python collector and its internal collection/cache functions (validated against Omarchy 4.0.4-1); compatibility may need updating if those internals change. Collectors and authentication tools are not bundled. Older Omarchy versions without these APIs are not supported.
 
 ## Install
 
@@ -77,7 +77,7 @@ omarchy bar set tod.omagoblin barProviders 'codex,claude'
 omarchy bar set tod.omagoblin providers '{"claude":{"enabled":true},"codex":{"enabled":true},"fireworks":{"enabled":false}}' --json
 ```
 
-`barProviders` takes comma-separated provider IDs in display order. The popup's **Pin to bar** button saves the same setting, so you can select Codex, Claude, both, or any other provider that Omarchy discovers (such as Grok or Gemini). At least one provider stays pinned. Refresh defaults to 120 seconds. Missing subscription limits are retried automatically after 30 seconds, with backoff up to two minutes. Local records are re-read every 30 seconds to recover missed file-change notifications. Provider settings belong to the widget entry in Omarchy's `shell.json`; providers default to enabled. No personal settings file is distributed.
+`barProviders` takes comma-separated provider IDs in display order. The popup's **Pin to bar** button saves the same setting, so you can select Codex, Claude, both, or any other provider that Omarchy discovers (such as Grok or Gemini). At least one provider stays pinned. Refresh defaults to 120 seconds. Claude uses the host collector through a local adapter: rate-limited probes back off from five to thirty minutes and cached values are explicitly marked as outdated in the popup. Missing subscription limits are retried automatically after 30 seconds, with backoff up to two minutes. Local records are re-read every 30 seconds to recover missed file-change notifications. Provider settings belong to the widget entry in Omarchy's `shell.json`; providers default to enabled. No personal settings file is distributed.
 
 Optional cross-device aggregation:
 
@@ -111,7 +111,7 @@ Other IPC actions: `open`, `close`, `show`, `hide`, `next`.
 
 ## Data and privacy
 
-The widget reads collector-generated JSON from `${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/agents/usage`. Collectors run through Omarchy and may contact the corresponding provider using locally configured authentication. Usage availability and historical coverage depend on those collectors.
+The widget reads collector-generated JSON from `${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/agents/usage`. Collectors run through Omarchy and may contact the corresponding provider using locally configured authentication. Usage availability and historical coverage depend on those collectors. `refresh-claude.py` executes the installed Omarchy Claude collector in-process, using its existing authentication and endpoint, and atomically writes the Claude usage record. It stores only retry timing and status text in `${XDG_CACHE_HOME:-$HOME/.cache}/omarchy/agent-usage/omagoblin-claude-backoff.json`; no tokens or credentials are stored in this additional cache.
 
 `active-model.sh` reads only the model field from the newest modified Codex session under `${CODEX_HOME:-$HOME/.codex}/sessions`. It does not copy session transcripts into the repository or publish them.
 
@@ -121,7 +121,7 @@ OmaGoblin has no telemetry endpoint. Optional synchronization writes usage snaps
 
 ```bash
 omarchy plugin validate .
-bash -n active-model.sh
+bash -n active-model.sh update-usage.sh
 python3 -m unittest discover -s tests -v
 node --test tests/*.test.cjs
 ```

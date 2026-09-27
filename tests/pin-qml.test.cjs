@@ -45,11 +45,11 @@ test('normalizes duplicate IDs and summarizes quotas, balances and tokens', () =
   assert.equal(JSON.stringify(ctx.parsePinnedProviders(' codex, claude, codex, grok ')),
     '["codex","claude","grok"]');
   assert.equal(ctx.providerBarText({providerId: 'claude', providerName: 'Claude',
-    limits: [{label: 'Session', percent: 0.25}]}), 'Claude · 75%');
+    limits: [{label: 'Session', percent: 0.25}]}), '75%');
   assert.equal(ctx.providerBarText({providerId: 'grok', providerName: 'Grok', limits: [],
-    balance: {remaining: 3.5, currency: 'USD'}}), 'Grok · $3.50');
+    balance: {remaining: 3.5, currency: 'USD'}}), '—');
   assert.equal(ctx.providerBarText({providerId: 'gemini', providerName: 'Gemini', limits: [],
-    todayTotalTokens: 500}), 'Gemini · 500 tokens today');
+    todayTotalTokens: 500}), '—');
 });
 
 test('keeps pin order and falls back when saved providers have no data', () => {
@@ -60,4 +60,20 @@ test('keeps pin order and falls back when saved providers have no data', () => {
   assert.equal(JSON.stringify(ctx.availableBarProviders(available, ['grok'])),
     JSON.stringify([available[0]]));
   assert.equal(ctx.availableBarProviders([], ['codex']).length, 0);
+});
+
+
+test('bar always uses current session even when weekly consumption is higher', () => {
+  const ctx = context();
+  const p = {providerId: 'claude', providerName: 'Claude', limits: [
+    {label: 'Weekly (7-day)', percent: 0.95},
+    {label: 'Session (5-hour)', percent: 0.2},
+  ]};
+  assert.equal(ctx.bindingWindow(p).title, 'Session');
+  assert.equal(ctx.providerBarText(p), '80%');
+  p.limits = [{label: 'Weekly (7-day)', percent: 0.95}];
+  assert.equal(ctx.bindingWindow(p), null);
+  assert.equal(ctx.providerBarText(p), '—');
+  p.limits.push({label: 'Session', percent: null});
+  assert.equal(ctx.bindingWindow(p), null);
 });

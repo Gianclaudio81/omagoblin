@@ -105,13 +105,10 @@ Panel {
   }
 
   function providerBarText(p) {
-    var name = p.providerId === "codex" ? activeModelText : p.providerName
     var limit = bindingWindow(p)
     if (limit && limit.percent >= 0)
-      return name + " · " + Math.round((1 - clamp(limit.percent, 0, 1)) * 100) + "%"
-    if (p.balance) return name + " · " + formatMoney(p.balance.remaining, p.balance.currency)
-    if (p.todayTotalTokens > 0) return name + " · " + usage.formatTokenCount(p.todayTotalTokens) + " today"
-    return name
+      return Math.round((1 - clamp(limit.percent, 0, 1)) * 100) + "%"
+    return "—"
   }
 
   function pinProvider(id) {
@@ -201,21 +198,21 @@ Panel {
     var list = p.limits || []
     for (var i = 0; i < list.length; i++) {
       var entry = list[i] || {}
+      if (entry.percent === null || entry.percent === undefined || entry.percent === "") continue
       var percent = Number(entry.percent)
-      if (percent >= 0) out.push(limitWindow(entry.label, percent, entry.resetsAt, entry.title))
+      if (isFinite(percent) && percent >= 0) out.push(limitWindow(entry.label, percent, entry.resetsAt, entry.title))
     }
     return out
   }
 
-  // The window that decides how much room is left — the fullest one, since
-  // that is what stops the next prompt.
+  // Keep the bar and headline on the current session, even when the weekly
+  // allowance is fuller. A missing session must never turn into a weekly quota.
   function bindingWindow(p) {
     var windows = limitWindows(p)
-    var best = null
     for (var i = 0; i < windows.length; i++) {
-      if (!best || windows[i].percent > best.percent) best = windows[i]
+      if (windows[i].title === "Session") return windows[i]
     }
-    return best
+    return null
   }
 
   function resetMsFor(w) {

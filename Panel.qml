@@ -76,7 +76,7 @@ Panel {
   readonly property bool alarming: {
     for (var i = 0; i < barProviders.length; i++) {
       var p = barProviders[i]
-      var limit = bindingWindow(p)
+      var limit = barWindow(p)
       if (limit && limit.percent >= 0.9) return true
       var credit = p.balance
       if (credit && credit.funded > 0 && credit.remaining / credit.funded <= 0.1) return true
@@ -105,9 +105,10 @@ Panel {
   }
 
   function providerBarText(p) {
-    var limit = bindingWindow(p)
+    var limit = barWindow(p)
     if (limit && limit.percent >= 0)
       return Math.round((1 - clamp(limit.percent, 0, 1)) * 100) + "%"
+        + (limit.title === "Weekly" ? "w" : limit.title === "Monthly" ? "m" : "")
     return "—"
   }
 
@@ -213,6 +214,27 @@ Panel {
       if (windows[i].title === "Session") return windows[i]
     }
     return null
+  }
+
+  // Some plans (Codex Pro Lite, for one) have no session window at all. Only
+  // then does the bar fall back to the shortest long window, suffixed so it is
+  // never mistaken for a session. A session the collector reported without a
+  // usable figure stays a dash.
+  function barWindow(p) {
+    var session = bindingWindow(p)
+    if (session) return session
+    var list = p && p.limits ? p.limits : []
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && windowTitle(list[i].label) === "Session" && !list[i].title) return null
+    }
+    var windows = limitWindows(p)
+    var best = null
+    for (var j = 0; j < windows.length; j++) {
+      var w = windows[j]
+      if (w.title !== "Weekly" && w.title !== "Monthly") continue
+      if (!best || (w.title === "Weekly" && best.title === "Monthly")) best = w
+    }
+    return best
   }
 
   function resetMsFor(w) {

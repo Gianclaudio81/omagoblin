@@ -24,7 +24,7 @@ Derived from Omarchy's `omarchy.agents` widget. The bar can show one or several 
 - Pin one or several detected providers to the bar from the popup.
 - Left-click opens the panel, middle-click switches subscriptions, right-click launches Omarchy's agent picker.
 
-The bar defaults to Codex when its data is available. The bar shows only the remaining percentage of the current session for each pinned provider; a missing session quota appears as an em dash. Weekly limits, names, balances and token totals remain in the popup. If a pinned provider has no data, the bar shows the other pinned providers; if none has data, it shows the first available provider. With no recorded usage, the widget hides itself.
+The bar defaults to Codex when its data is available. The bar shows only the remaining percentage of the current session for each pinned provider; plans without any session window (such as Codex Pro Lite) show the weekly remainder with a `w` suffix, while a session quota that is temporarily missing appears as an em dash. Weekly limits, names, balances and token totals remain in the popup. If a pinned provider has no data, the bar shows the other pinned providers; if none has data, it shows the first available provider. With no recorded usage, the widget hides itself.
 
 ## Requirements
 

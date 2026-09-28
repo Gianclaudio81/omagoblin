@@ -73,7 +73,19 @@ test('bar always uses current session even when weekly consumption is higher', (
   assert.equal(ctx.providerBarText(p), '80%');
   p.limits = [{label: 'Weekly (7-day)', percent: 0.95}];
   assert.equal(ctx.bindingWindow(p), null);
-  assert.equal(ctx.providerBarText(p), '—');
+  assert.equal(ctx.providerBarText(p), '5%w');
   p.limits.push({label: 'Session', percent: null});
   assert.equal(ctx.bindingWindow(p), null);
+  assert.equal(ctx.providerBarText(p), '—');
+});
+
+test('plans without a session window fall back to the weekly window', () => {
+  const ctx = context();
+  const codex = {providerId: 'codex', limits: [{label: 'Weekly (7-day)', percent: 0.26}]};
+  assert.equal(ctx.providerBarText(codex), '74%w');
+  codex.limits.push({label: 'Monthly', percent: 0.1});
+  assert.equal(ctx.providerBarText(codex), '74%w');
+  assert.equal(ctx.providerBarText({providerId: 'x', limits: [{label: 'Monthly', percent: 0.5}]}), '50%m');
+  assert.equal(ctx.providerBarText({providerId: 'x', limits: []}), '—');
+  assert.equal(ctx.providerBarText({providerId: 'x', limits: [{label: 'Opus 5 (1M context)', title: 'Opus 5', percent: 0.3}]}), '—');
 });

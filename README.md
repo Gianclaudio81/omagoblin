@@ -98,6 +98,13 @@ or excess snapshots are skipped and the panel shows a warning. Use a dedicated
 sync folder: excess files can make the aggregate incomplete. The helper has a
 five-second timeout; failed scans retain the last successful aggregate.
 
+Local usage records are read the same way. A helper opens the usage directory
+without following symlinks and accepts only regular `.json` files owned by the
+current user, at most 32 records of 256 KiB each (1 MiB total), opened with
+`O_NOFOLLOW | O_NONBLOCK` so a swapped symlink or FIFO cannot stall the shell.
+Records are limited to 12 levels and 16,384 values; invalid ones are skipped.
+The helper has a five-second timeout; failed reads keep the last records.
+
 ## Controls
 
 Inside the panel: `h` / `l` switch subscription, `j` / `k` scroll, `r` or Enter refresh, Esc closes.

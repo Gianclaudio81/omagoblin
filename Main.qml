@@ -17,59 +17,61 @@ Item {
 
   // ------------------------------------------------------------- discovery
 
-  property var agentIds: []
   property var agents: []
   property int dataRevision: 0
+  property bool loadRequestedWhileRunning: false
 
+  // Records are read by a helper that refuses symlinks, FIFOs, foreign-owned
+  // and oversized files; the shell never opens the usage directory itself.
   Process {
-    id: listProcess
+    id: loadProcess
     running: false
-    command: ["find", root.usageDir, "-maxdepth", "1", "-name", "*.json", "-printf", "%f\n"]
+    command: ["python3", decodeURIComponent(Qt.resolvedUrl("read-usage.py").toString().replace("file://", "")), root.usageDir]
+    onExited: {
+      if (root.loadRequestedWhileRunning) {
+        root.loadRequestedWhileRunning = false
+        Qt.callLater(root.loadAgents)
+      }
+    }
 
     stdout: StdioCollector {
       waitForEnd: true
-      onStreamFinished: root.applyAgentListing(text)
+      onStreamFinished: root.applyAgentRecords(text)
+    }
+
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: if (text.trim() !== "") console.warn("agents", text.trim())
     }
   }
 
-  function rescanAgents() {
-    if (!listProcess.running) listProcess.running = true
-  }
-
-  function applyAgentListing(output) {
-    var ids = []
-    var lines = String(output || "").split("\n")
-    for (var i = 0; i < lines.length; i++) {
-      var name = lines[i].trim()
-      if (name.slice(-5) === ".json") ids.push(name.slice(0, -5))
+  function loadAgents() {
+    if (loadProcess.running) {
+      loadRequestedWhileRunning = true
+      return
     }
-    ids.sort()
-    // Same list, same objects: reassigning the model would tear down every
-    // FileView just to build identical ones.
-    if (JSON.stringify(ids) !== JSON.stringify(agentIds)) agentIds = ids
+    loadProcess.running = true
   }
 
-  Instantiator {
-    id: agentInstantiator
-    model: root.agentIds
-
-    delegate: Agent {
-      required property var modelData
-      agentId: modelData
-      path: root.usageDir + "/" + modelData + ".json"
-      onRecordChanged: root.recordsChanged()
+  function applyAgentRecords(output) {
+    var envelope
+    try {
+      envelope = JSON.parse(String(output || ""))
+    } catch (e) {
+      console.warn("agents", "Ignoring unreadable usage records")
+      return
     }
-
-    onObjectAdded: (index, object) => root.rebuildAgents()
-    onObjectRemoved: (index, object) => root.rebuildAgents()
-  }
-
-  function rebuildAgents() {
+    if (!envelope || !Array.isArray(envelope.records)) return
+    if (envelope.rejected > 0) console.warn("agents", "Skipped " + envelope.rejected + " usage record(s)")
     var result = []
-    for (var i = 0; i < agentInstantiator.count; i++) {
-      var agent = agentInstantiator.objectAt(i)
-      if (agent) result.push(agent)
+    for (var i = 0; i < envelope.records.length; i++) {
+      var item = envelope.records[i]
+      if (!item || typeof item.agentId !== "string") continue
+      var record = item.record && typeof item.record === "object" && !Array.isArray(item.record) ? item.record : null
+      result.push({ agentId: item.agentId, record: record })
     }
+    // Unchanged records keep the current objects: no spurious rebinds.
+    if (JSON.stringify(result) === JSON.stringify(agents)) return
     agents = result
     recordsChanged()
   }
@@ -95,22 +97,15 @@ Item {
     }
   }
 
-  // File watchers can miss replacements. Re-read locally even when no
-  // collector writes a new file; this does not make a network request.
+  // Pick up records written outside our own update runs; this is a local
+  // read only and does not make a network request.
   Timer {
     interval: 30000
     running: true
     repeat: true
     onTriggered: {
-      root.rescanAgents()
-      root.reloadAgents()
+      root.loadAgents()
       root.scheduleLimitsRetry()
-    }
-  }
-
-  function reloadAgents() {
-    for (var i = 0; i < agents.length; i++) {
-      if (agents[i]) agents[i].reload()
     }
   }
 
@@ -147,7 +142,7 @@ Item {
   }
 
   Component.onCompleted: {
-    rescanAgents()
+    loadAgents()
     if (syncConfigured()) scheduleSync()
   }
 
@@ -168,8 +163,7 @@ Item {
     id: updateProcess
     running: false
     onExited: {
-      root.rescanAgents()
-      root.reloadAgents()
+      root.loadAgents()
       if (root.pendingUpdateKind !== "") {
         var kind = root.pendingUpdateKind
         root.pendingUpdateKind = ""

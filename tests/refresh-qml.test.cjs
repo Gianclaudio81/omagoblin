@@ -47,9 +47,13 @@ test('repeated reads do not postpone retries; recovery clears backoff', () => {
   assert.equal(ctx.limitsRetry.running, false);
   assert.equal(ctx.limitsRetryDelayMs, 30000);
 });
-test('watchdog reloads all existing local records', () => {
-  let reads = 0;
-  const ctx = context([null, {reload() {reads++;}}, {reload() {reads++;}}]);
-  ctx.reloadAgents();
-  assert.equal(reads, 2);
+test('watchdog reloads collapse while a read is running', () => {
+  const ctx = context();
+  ctx.loadProcess = {running: false};
+  ctx.loadRequestedWhileRunning = false;
+  ctx.loadAgents();
+  assert.equal(ctx.loadProcess.running, true);
+  ctx.loadAgents();
+  ctx.loadAgents();
+  assert.equal(ctx.loadRequestedWhileRunning, true);
 });

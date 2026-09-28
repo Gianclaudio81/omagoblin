@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "tod.omagoblin",
   "name": "OmaGoblin",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "author": "Gianclaudio81 and Omarchy contributors",
   "license": "MIT",
   "description": "Your tokens. My precious. AI subscription usage and remaining quotas for Omarchy.",

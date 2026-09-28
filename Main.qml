@@ -56,6 +56,8 @@ Item {
   function applyAgentRecords(output) {
     var envelope
     try {
+      // The helper caps its output; keep a second bound before parsing.
+      if (String(output || "").length > 2 * 1024 * 1024) throw new Error("size")
       envelope = JSON.parse(String(output || ""))
     } catch (e) {
       console.warn("agents", "Ignoring unreadable usage records")
@@ -325,7 +327,6 @@ Item {
   readonly property string syncEffectiveDir: expandPath(syncDir)
   readonly property string syncEffectiveFileName: safeSnapshotFileName(syncFileName, syncDeviceId)
   readonly property string syncEffectiveDeviceId: safeDeviceId(syncDeviceId || syncEffectiveFileName.replace(/\.json$/i, ""))
-  readonly property string syncSnapshotPath: syncConfigured() ? syncEffectiveDir + "/" + syncEffectiveFileName : home + "/.cache/omarchy/agents-disabled.json"
   property var aggregateData: ({})
   property int syncRevision: 0
   property bool syncRunning: false
@@ -379,12 +380,26 @@ Item {
     }
   }
 
-  FileView {
-    id: syncSnapshotFile
-    path: root.syncSnapshotPath
-    watchChanges: false
-    atomicWrites: true
-    printErrors: false
+  // The snapshot lands in a folder other machines write to, so a peer could
+  // leave a symlink or FIFO under our file name. A FileView would write
+  // through the link; the helper replaces the entry atomically instead.
+  Process {
+    id: syncWriteProcess
+    running: false
+    onRunningChanged: root.updateSyncRunning()
+    onExited: function(exitCode) {
+      if (exitCode !== 0) {
+        if (root.syncConfigured()) root.syncStatusText = "Usage sync write failed"
+        root.finishSyncRun()
+        return
+      }
+      root.startSyncScan()
+    }
+
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: if (text.trim() !== "") console.warn("agents/sync", text.trim())
+    }
   }
 
   FileView {
@@ -418,7 +433,7 @@ Item {
   }
 
   function updateSyncRunning() {
-    root.syncRunning = syncMkdirProcess.running || syncScanProcess.running
+    root.syncRunning = syncMkdirProcess.running || syncWriteProcess.running || syncScanProcess.running
   }
 
   function scheduleSync() {
@@ -444,8 +459,11 @@ Item {
       finishSyncRun()
       return
     }
-    syncSnapshotFile.setText(JSON.stringify(localSnapshot(), null, 2) + "\n")
-    Qt.callLater(root.startSyncScan)
+    // Passed through the environment, which only this user can read, rather
+    // than argv, which every local user can see in /proc.
+    syncWriteProcess.environment = ({ OMAGOBLIN_SNAPSHOT: JSON.stringify(localSnapshot(), null, 2) + "\n" })
+    syncWriteProcess.command = ["python3", decodeURIComponent(Qt.resolvedUrl("write-snapshot.py").toString().replace("file://", "")), root.syncEffectiveDir, root.syncEffectiveFileName]
+    syncWriteProcess.running = true
   }
 
   function startSyncScan() {

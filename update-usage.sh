@@ -1,6 +1,9 @@
 #!/bin/bash
 # Keep the host collectors, adding Claude cooldown/error handling locally.
 set -u
+# The shell buffers our stderr; keep only its tail so a noisy collector
+# cannot grow that buffer without bound (tail never closes the pipe early).
+exec 2> >(tail -c 16384 >&2)
 args=()
 claude_enabled=true
 selected=()

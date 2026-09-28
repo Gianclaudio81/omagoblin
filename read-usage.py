@@ -12,6 +12,7 @@ MAX_ENTRIES = 1024
 MAX_FILES = 32
 MAX_FILE_BYTES = 256 * 1024
 MAX_TOTAL_BYTES = 1024 * 1024
+MAX_OUTPUT_BYTES = 2 * 1024 * 1024
 MAX_NODES = 16384
 MAX_CONTAINER = 4096
 MAX_DEPTH = 12
@@ -124,7 +125,11 @@ def main():
     signal.alarm(5)
     try:
         result = scan(sys.argv[1])
-        sys.stdout.write(json.dumps(result, ensure_ascii=True, separators=(",", ":"), allow_nan=False) + "\n")
+        output = json.dumps(result, ensure_ascii=True, separators=(",", ":"), allow_nan=False) + "\n"
+        # ASCII escaping can grow the records; the shell buffers all of this.
+        if len(output) > MAX_OUTPUT_BYTES:
+            raise ValueError("output size")
+        sys.stdout.write(output)
         return 0
     except (OSError, ValueError, IndexError, MemoryError, RecursionError):
         # Never echo file names or contents back into the shell log.

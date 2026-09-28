@@ -105,6 +105,15 @@ current user, at most 32 records of 256 KiB each (1 MiB total), opened with
 Records are limited to 12 levels and 16,384 values; invalid ones are skipped.
 The helper has a five-second timeout; failed reads keep the last records.
 
+This machine's snapshot is published by a helper too, because other machines
+write to the same folder and could leave a symlink or FIFO under its name. The
+snapshot reaches the helper through its environment (readable only by you, not
+through the process list), is limited to 256 KiB, and is written to a new
+owner-only temporary file that atomically replaces the directory entry, so a
+planted link is replaced rather than written through. The Claude adapter stops
+after 45 seconds, `active-model.sh` bounds its reads and output, and collector
+error output kept by the shell is capped at 16 KiB.
+
 ## Controls
 
 Inside the panel: `h` / `l` switch subscription, `j` / `k` scroll, `r` or Enter refresh, Esc closes.

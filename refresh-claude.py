@@ -3,6 +3,7 @@
 import json
 import os
 import runpy
+import signal
 import time
 from pathlib import Path
 
@@ -45,7 +46,15 @@ def guarded_collect(module, access_token, expires_at_ms, force):
     return result
 
 
+def stalled(signum, frame):
+    raise TimeoutError("collector stalled")
+
+
 def main():
+    # A stalled read (a FIFO in a cache path, a hung endpoint) must not keep
+    # the update running forever; raising lets cleanup stop child processes.
+    signal.signal(signal.SIGALRM, stalled)
+    signal.alarm(45)
     collector = Path(os.environ.get('OMARCHY_PATH', '/usr/share/omarchy')) / 'bin/omarchy-agent-usage-claude'
     module = runpy.run_path(str(collector))
     module['main'].__globals__['collect_limits'] = lambda token, expiry, force: guarded_collect(module, token, expiry, force)

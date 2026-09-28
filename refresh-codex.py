@@ -6,6 +6,7 @@ import json
 import os
 import runpy
 import select
+import signal
 import time
 from pathlib import Path
 
@@ -51,7 +52,15 @@ def buffered_rpc_request(proc, request_id, method, params=None, timeout=8):
         proc._omagoblin_pending = pending
 
 
+def stalled(signum, frame):
+    raise TimeoutError("collector stalled")
+
+
 def main():
+    # A stalled read (a FIFO in a cache path, a hung endpoint) must not keep
+    # the update running forever; raising lets cleanup stop child processes.
+    signal.signal(signal.SIGALRM, stalled)
+    signal.alarm(45)
     collector = Path(os.environ.get('OMARCHY_PATH', '/usr/share/omarchy')) / 'bin/omarchy-agent-usage-codex'
     module = runpy.run_path(str(collector))
     scope = module['fetch_codex_rpc'].__globals__

@@ -110,7 +110,7 @@ write to the same folder and could leave a symlink or FIFO under its name. The
 snapshot reaches the helper through its environment (readable only by you, not
 through the process list), is limited to 256 KiB, and is written to a new
 owner-only temporary file that atomically replaces the directory entry, so a
-planted link is replaced rather than written through. The Claude adapter stops
+planted link is replaced rather than written through. The Claude and Codex adapters stop
 after 45 seconds, `active-model.sh` bounds its reads and output, and collector
 error output kept by the shell is capped at 16 KiB.
 

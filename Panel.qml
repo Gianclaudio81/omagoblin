@@ -399,6 +399,17 @@ Panel {
     return candidates
   }
 
+  // The bar has no surface colour of its own to test, but its foreground is
+  // picked to contrast with it: a dark foreground means a light bar.
+  function barIconCandidates(p) {
+    if (!p) return []
+    var candidates = []
+    if (colorLuminance(button.foreground) < 0.5)
+      candidates.push(Qt.resolvedUrl("assets/" + p.providerId + "-light.svg"))
+    candidates.push(Qt.resolvedUrl("assets/" + p.providerId + ".svg"))
+    return candidates
+  }
+
   // Nothing to report, nothing in the bar: Bar.qml collapses a slot whose item
   // is invisible, so the icon appears the moment the first scan finds usage and
   // stays away entirely on a machine that has never run either CLI.
@@ -471,6 +482,71 @@ Panel {
     horizontalMargin: 8.5
     fontSize: Style.font.caption
     active: root.alarming
+    // A horizontal bar puts each provider's mark before its percentage; a
+    // vertical one keeps the plain label, which the button rotates to fit.
+    labelVisible: vertical
+    fixedWidth: vertical ? -1 : barRow.implicitWidth + scaledHorizontalMargin * 2
+
+    Row {
+      id: barRow
+      anchors.centerIn: parent
+      visible: !button.vertical
+      readonly property color textColor: button.active ? button.activeColor : button.foreground
+
+      Repeater {
+        // Indexed rather than bound to the provider objects: those are rebuilt
+        // on every refresh, and a new model would recreate every mark.
+        model: root.barProviders.length
+
+        delegate: Row {
+          id: barEntry
+          required property int index
+          readonly property var entryProvider: root.barProviders[index] || null
+          property var candidates: root.barIconCandidates(entryProvider)
+          property string candidatesKey: candidates.join("\n")
+          property int candidateIndex: 0
+          onCandidatesKeyChanged: candidateIndex = 0
+          spacing: Style.spaceReal(4)
+
+          Text {
+            visible: barEntry.index > 0
+            textFormat: Text.PlainText
+            text: "|"
+            leftPadding: Style.spaceReal(6)
+            rightPadding: Style.spaceReal(2)
+            anchors.verticalCenter: parent.verticalCenter
+            color: barRow.textColor
+            font.family: button.fontFamily
+            font.pixelSize: button.fontSize
+            renderType: Text.NativeRendering
+          }
+
+          Image {
+            id: barMark
+            visible: status === Image.Ready
+            width: visible ? button.fontSize : 0
+            height: button.fontSize
+            anchors.verticalCenter: parent.verticalCenter
+            source: barEntry.candidateIndex < barEntry.candidates.length ? barEntry.candidates[barEntry.candidateIndex] : ""
+            sourceSize.width: button.fontSize * 2
+            sourceSize.height: button.fontSize * 2
+            fillMode: Image.PreserveAspectFit
+            onStatusChanged: if (status === Image.Error && barEntry.candidateIndex < barEntry.candidates.length)
+              Qt.callLater(function() { barEntry.candidateIndex++ })
+          }
+
+          Text {
+            textFormat: Text.PlainText
+            text: root.providerBarText(barEntry.entryProvider)
+            anchors.verticalCenter: parent.verticalCenter
+            color: barRow.textColor
+            font.family: button.fontFamily
+            font.pixelSize: button.fontSize
+            renderType: Text.NativeRendering
+          }
+        }
+      }
+    }
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.RightButton) root.launchAgent()
       else if (buttonCode === Qt.MiddleButton) root.selectProvider(root.providerIndex + 1)
